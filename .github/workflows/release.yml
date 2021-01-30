@@ -63,6 +63,7 @@ jobs:
       - name: Install requirements
         run: |
           pip install twine
+          pip install wheel
       - name: deploy
         run: |
           python setup.py bdist_wheel &&
