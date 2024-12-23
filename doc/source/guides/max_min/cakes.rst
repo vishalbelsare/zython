@@ -5,7 +5,7 @@ Let's imagine you've decided host charity event and you will sold cakes to raise
 ingredients and your goal is to maximize profit. So you should find such combination of different cakes, which you can
 make with your amount of supplies and raise maximum amount of money to donate it to charity organization.
 
-.. image:: ../../_static/img/cupcakes.jpg
+.. image:: ../../_static/img/guides/max_min/cakes/cupcakes.jpg
   :width: 600
   :alt: Cupcakes (Source: https://www.freepik.com/lifeforstock )
 
@@ -23,7 +23,7 @@ Python Model
             self.cakes = zn.Array(zn.var(int), shape=len(recipes))
             self.constraints = [sum(recipe[i] * cake for recipe, cake in zip(recipes, self.cakes)) <= available[i]
                                 for i in range(len(available))]
-            self.constraints += [cake > 0 for cake in self.cakes]
+            self.constraints += [cake >= 0 for cake in self.cakes]
 
 
     recipe = namedtuple("recipe", ("flour", "banana", "sugar", "butter", "cocoa"))
@@ -42,4 +42,4 @@ Python Model
 .. testoutput::
 
     Solution(objective=1700, cakes=[2, 2])
-    Solution(objective=199850, cakes=[286, 141, 1])
+    Solution(objective=200000, cakes=[288, 140, 0])

@@ -1,26 +1,18 @@
 import inspect
-import itertools
 from collections import deque
-from typing import Type
 
 from zython import var, par
 from zython._helpers.validate import _start_stop_step_validate
 from zython.operations import operation
+from .abstract import _AbstractCollection
 
 
 def _can_create_array_from(arg):
     return hasattr(arg, "__iter__") or hasattr(arg, "__getitem__") and (not isinstance(arg, str))
 
 
-class ArrayMixin(operation.Operation):
+class ArrayMixin(_AbstractCollection):
     _shape: tuple
-    _name: str
-    name: str  # remove pycharm warnings, this property is handled by var\par base class
-    _type: Type
-
-    @property
-    def type(self):
-        return self._type
 
     def __getitem__(self, item):
         return ArrayView(self, item)
@@ -47,19 +39,19 @@ class ArrayMixin(operation.Operation):
 class ArrayView(ArrayMixin):
     def __init__(self, array, pos):
         self.array: ArrayMixin = array
-        # pos is a tuple with the same size as number of array dimensions, the user can specify less iterators,
-        # slice(None, None, 1) will be added to fit the number of dimensions, so compilers shouldn't worry about it
+        # pos is a tuple with the same size as number of array dimensions
         self.pos = self._get_pos(pos)
         self._type = array.type
 
     def _get_pos(self, pos):
         if not isinstance(pos, tuple):
-            pos = [pos]
+            pos = (pos,)
+        if len(pos) != self.array.ndims():
+            raise ValueError(
+                f"The array has {self.array.ndims()} dimensions, but {len(pos)} indexes were specified"
+            )
         self._check_for_index_error(pos)
-        repeat = itertools.repeat(slice(None, None, 1), self.array.ndims() - len(pos))
-        pos = tuple(self._process_pos_item(dim, p) for dim, p in enumerate(itertools.chain(pos, repeat)))
-        if len(pos) > self.array.ndims():
-            raise ValueError(f"Array has {self.array.ndims()} dimensions but {len(pos)} were specified")
+        pos = tuple(self._process_pos_item(dim, p) for dim, p in enumerate(pos))
         return pos
 
     def _check_for_index_error(self, pos):
@@ -115,28 +107,28 @@ class ArrayPar(par, ArrayMixin):
         shape = []
         queue = deque()
         level = 0
-        old_length = 0
         length = 0
-        while _can_create_array_from(arg):
+        current_arg = arg
+        while _can_create_array_from(current_arg):
             old_length = length
             length = 0
-            for a in arg:
+            for a in current_arg:
                 queue.append((a, level + 1))
                 length += 1
             if not length:
                 raise ValueError("Empty array was specified")
-            arg, new_level = queue.popleft()
+            current_arg, new_level = queue.popleft()
             if len(shape) <= level:
                 shape.append(length)
             elif old_length != length:
                 raise ValueError("Subarrays of different length are not supported, length of all subarrays "
                                  f"at level {level} should be {old_length}, but one has {length}")
             level = new_level
-        if not isinstance(arg, int):
+        if not isinstance(current_arg, int):
             raise ValueError("Only array with dtype int are supported")
-        self._type = type(arg)
+        self._type = type(current_arg)
         self._shape = tuple(shape)
-        self._check_and_set_values(arg, is_generator, level, queue)
+        self._check_and_set_values(current_arg, is_generator, level, queue)
 
     def _check_and_set_values(self, arg, is_generator, level, queue):
         flatten_values = [arg]
@@ -168,7 +160,7 @@ class ArrayPar(par, ArrayMixin):
 
 
 class Array:
-    def __new__(cls, arg, shape=None):  # TODO: make positional only
+    def __new__(cls, arg, /, shape=None):
         if isinstance(arg, var):
             return ArrayVar(arg, shape=shape)
         else:

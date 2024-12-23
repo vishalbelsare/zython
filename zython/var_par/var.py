@@ -2,21 +2,25 @@ import inspect
 
 from zython.operations.operation import Operation
 from zython.operations.constraint import Constraint
-from zython.var_par.types import is_range
+from zython.var_par.get_type import is_range, is_enum
 
 
 class var(Operation):
-    def __init__(self, type_):  # TODO: make positional only
+    def __init__(self, /, type_, value=None):
         self._name = None
-        self._value = None
+        self._value = value
         self._type = None
         if isinstance(type_, Constraint):
             self._type = type_.type
             self._value = type_
+            if value is not None:
+                raise ValueError("Can not pass value to constraint")
         else:
             if is_range(type_):
                 if type_.step != 1:
                     raise ValueError("Step values other than 1 are not supported")
+                self._type = type_
+            elif is_enum(type_):
                 self._type = type_
             elif inspect.isclass(type_):
                 if issubclass(type_, int):

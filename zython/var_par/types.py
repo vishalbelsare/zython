@@ -1,34 +1,36 @@
-import zython  # for type hints
 from typing import Union, Sequence
 
-from zython.operations.operation import Operation
+import zython  # for type hints
 
-orig_range = range
+
+def _create_range(cls, start, stop, step):
+    obj = object.__new__(cls)
+    obj.start = start
+    obj.stop = stop
+    obj.step = step
+    return obj
 
 
 class _range:
+    start: Union[int, float, "zython.operations.operation.Operation"]
+    stop: Union[int, float, "zython.operations.operation.Operation"]
+    step: Union[int, float, "zython.operations.operation.Operation"]  # only 1 supported for now
+
     def __new__(cls, start, stop=None, step=1):
         if stop is None:
             stop = start
             start = 0
-        if (isinstance(start, (Operation, float))
-                or isinstance(stop, (Operation, float))
-                or isinstance(step, (Operation, float))):
-            self = super().__new__(cls)
-            self.start = start
-            self.stop = stop
-            self.step = step
-            return self
-        else:
-            return orig_range(start, stop, step)
+        if isinstance(start, int) and isinstance(stop, int) and isinstance(step, int):
+            return range(start, stop, step)
+        if isinstance(start, (int, float)) and isinstance(stop, (int, float)) and isinstance(step, (int, float)):
+            return _create_range(cls, float(start), float(stop), float(step))
+        return _create_range(cls, start, stop, step)
 
 
-def is_range(obj):
-    return isinstance(obj, orig_range) or isinstance(obj, _range)
-
-
-ZnSequence = Union[_range, orig_range, "zython.var_par.array.ArrayMixin", Sequence["zython.var_par.var.var"]]
-
-
-def get_type(arg):
-    return getattr(arg, "type", type(arg))
+Ranges = range, _range
+RangesType = Union[range, _range]
+ZnSequence = Union[
+    RangesType,
+    "zython.var_par.collections.array.ArrayMixin",
+    Sequence["zython.var_par.var.var"],
+]
